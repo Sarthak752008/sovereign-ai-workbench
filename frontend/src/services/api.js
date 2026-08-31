@@ -101,6 +101,16 @@ export async function fetchAuditEvents() {
   return [];
 }
 
+export async function fetchDocuments() {
+  try {
+    const res = await fetch(`${API_BASE}/documents`);
+    if (res.ok) return await res.json();
+  } catch (e) {
+    console.error(e);
+  }
+  return [];
+}
+
 export async function uploadDocument(file) {
   const formData = new FormData();
   formData.append('file', file);
@@ -114,4 +124,40 @@ export async function uploadDocument(file) {
     console.error(e);
   }
   return null;
+}
+
+export async function deleteDocument(filename) {
+  try {
+    const res = await fetch(`${API_BASE}/documents/${filename}`, {
+      method: 'DELETE'
+    });
+    if (res.ok) return await res.json();
+  } catch (e) {
+    console.error(e);
+  }
+  return null;
+}
+
+export async function fetchKnowledgeChunks() {
+  try {
+    const res = await fetch(`${API_BASE}/knowledge/chunks`);
+    if (res.ok) return await res.json();
+  } catch (e) {
+    console.error(e);
+  }
+  return [];
+}
+
+export async function searchKnowledge(query) {
+  try {
+    const res = await fetch(`${API_BASE}/knowledge/search`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query, top_k: 5 })
+    });
+    if (res.ok) return await res.json();
+  } catch (e) {
+    console.error(e);
+  }
+  return [];
 }

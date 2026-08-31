@@ -1,6 +1,6 @@
 import os
 from typing import List, Dict, Any
-from fastapi import APIRouter, UploadFile, File, HTTPException
+from fastapi import APIRouter, UploadFile, File, HTTPException, Body
 from app.schemas.workbench import (
     RouteRequest,
     RouteDecision,
@@ -73,6 +73,22 @@ async def decide_approval(decision: ApprovalDecision):
 async def list_audit_events():
     return audit_ledger.get_events()
 
+@router.get("/documents")
+async def list_documents():
+    docs = []
+    if os.path.exists(settings.WORKSPACES_DIR):
+        for fname in os.listdir(settings.WORKSPACES_DIR):
+            fpath = os.path.join(settings.WORKSPACES_DIR, fname)
+            if os.path.isfile(fpath):
+                stat = os.stat(fpath)
+                docs.append({
+                    "filename": fname,
+                    "size_bytes": stat.st_size,
+                    "modified_at": stat.st_mtime,
+                    "extension": os.path.splitext(fname)[1].lower()
+                })
+    return docs
+
 @router.post("/documents/upload")
 async def upload_document(file: UploadFile = File(...)):
     save_path = os.path.join(settings.WORKSPACES_DIR, file.filename)
@@ -89,3 +105,22 @@ async def upload_document(file: UploadFile = File(...)):
         details={"size": len(content), "pages": doc_data["pages"]}
     )
     return {"status": "success", "filename": file.filename, "pages": doc_data["pages"]}
+
+@router.delete("/documents/{filename}")
+async def delete_document(filename: str):
+    fpath = os.path.join(settings.WORKSPACES_DIR, filename)
+    if os.path.exists(fpath):
+        os.remove(fpath)
+        audit_ledger.record_event(action="DOCUMENT_DELETE", document=filename)
+        return {"status": "success", "filename": filename}
+    raise HTTPException(status_code=404, detail="File not found")
+
+@router.get("/knowledge/chunks")
+async def list_knowledge_chunks():
+    return vector_store.list_chunks()
+
+@router.post("/knowledge/search")
+async def search_knowledge(payload: Dict[str, Any] = Body(...)):
+    query = payload.get("query", "")
+    top_k = payload.get("top_k", 5)
+    return vector_store.search(query, top_k=top_k)
