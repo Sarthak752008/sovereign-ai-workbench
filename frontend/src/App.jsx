@@ -5,6 +5,11 @@ import ModelRouterPanel from './components/ModelRouterPanel';
 import AgentActivityPanel from './components/AgentActivityPanel';
 import ApprovalInbox from './components/ApprovalInbox';
 import AuditExplorer from './components/AuditExplorer';
+import TasksView from './components/TasksView';
+import DocumentsView from './components/DocumentsView';
+import KnowledgeView from './components/KnowledgeView';
+import SecurityCenter from './components/SecurityCenter';
+import SettingsView from './components/SettingsView';
 import { 
   fetchSentinelStatus, 
   routeTask, 
@@ -27,16 +32,22 @@ export default function App() {
   const [approvals, setApprovals] = useState([]);
   const [auditEvents, setAuditEvents] = useState([]);
   const [uploadStatus, setUploadStatus] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const loadData = async () => {
-    const s = await fetchSentinelStatus();
-    setSentinel(s);
-    const t = await fetchTasks();
-    setTasks(t);
-    const a = await fetchApprovals();
-    setApprovals(a);
-    const ev = await fetchAuditEvents();
-    setAuditEvents(ev);
+    try {
+      const s = await fetchSentinelStatus();
+      setSentinel(s);
+      const t = await fetchTasks();
+      setTasks(t);
+      const a = await fetchApprovals();
+      setApprovals(a);
+      const ev = await fetchAuditEvents();
+      setAuditEvents(ev);
+    } catch (err) {
+      setError('Failed to sync backend state');
+    }
   };
 
   useEffect(() => {
@@ -56,10 +67,17 @@ export default function App() {
 
   const handleRunTask = async () => {
     if (!prompt.trim()) return;
-    const task = await createTask('Industrial Task Run', prompt, confidentiality);
-    if (task) {
-      setPrompt('');
-      loadData();
+    setLoading(true);
+    try {
+      const task = await createTask('Industrial Task Run', prompt, confidentiality);
+      if (task) {
+        setPrompt('');
+        await loadData();
+      }
+    } catch (err) {
+      setError('Failed to submit task to orchestrator');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -70,7 +88,7 @@ export default function App() {
     const res = await uploadDocument(file);
     if (res) {
       setUploadStatus(`Uploaded & processed ${file.name} (${res.pages} pages). Local vector RAG index updated.`);
-      loadData();
+      await loadData();
     } else {
       setUploadStatus(`Uploaded ${file.name} to local workspace.`);
     }
@@ -78,7 +96,7 @@ export default function App() {
 
   const handleDecideApproval = async (appId, decision) => {
     await decideApproval(appId, decision);
-    loadData();
+    await loadData();
   };
 
   const activeTask = tasks.length > 0 ? tasks[tasks.length - 1] : null;
@@ -128,7 +146,7 @@ export default function App() {
             )}
           </div>
 
-          {/* Interactive Workbench Task Launcher */}
+          {/* Page Routing Views */}
           {activeTab === 'workbench' && (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               {/* Task Input Launcher */}
@@ -187,11 +205,11 @@ export default function App() {
 
                     <button
                       onClick={handleRunTask}
-                      disabled={!prompt.trim()}
+                      disabled={!prompt.trim() || loading}
                       className="px-5 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold flex items-center space-x-2 shadow-lg glow-cyan transition disabled:opacity-50"
                     >
                       <Play className="w-4 h-4 fill-current" />
-                      <span>Execute Sovereign Task</span>
+                      <span>{loading ? 'Submitting...' : 'Execute Sovereign Task'}</span>
                     </button>
                   </div>
                 </div>
@@ -208,6 +226,18 @@ export default function App() {
             </div>
           )}
 
+          {activeTab === 'tasks' && (
+            <TasksView tasks={tasks} loading={loading} error={error} onRefresh={loadData} />
+          )}
+
+          {activeTab === 'documents' && (
+            <DocumentsView />
+          )}
+
+          {activeTab === 'knowledge' && (
+            <KnowledgeView />
+          )}
+
           {activeTab === 'approvals' && (
             <ApprovalInbox approvals={approvals} onDecide={handleDecideApproval} />
           )}
@@ -216,9 +246,17 @@ export default function App() {
             <AuditExplorer events={auditEvents} />
           )}
 
+          {activeTab === 'security' && (
+            <SecurityCenter sentinel={sentinel} auditEvents={auditEvents} loading={loading} error={error} />
+          )}
+
+          {activeTab === 'settings' && (
+            <SettingsView sentinel={sentinel} onRefresh={loadData} />
+          )}
+
           {activeTab === 'models' && (
             <div className="p-6 rounded-xl border border-slate-800 bg-slate-900/60 glass-panel space-y-4">
-              <h3 className="text-sm font-bold text-cyan-300 uppercase">Registered On-Premise Local Models</h3>
+              <h3 className="text-sm font-bold text-cyan-300 uppercase font-mono">Registered On-Premise Local Models</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-mono">
                 {sentinel?.active_local_models?.map((m, idx) => (
                   <div key={idx} className="p-4 rounded-lg bg-slate-950 border border-slate-800 space-y-2">
@@ -226,7 +264,7 @@ export default function App() {
                       <span>{m}</span>
                       <span className="text-emerald-400 text-[10px] bg-emerald-950 px-2 py-0.5 rounded border border-emerald-800">READY</span>
                     </div>
-                    <p className="text-[11px] text-slate-400 font-sans">Provider: Ollama / Local Open-Weights</p>
+                    <p className="text-[11px] text-slate-400 font-sans">Provider: Ollama / Local Open-Weights Engine</p>
                   </div>
                 ))}
               </div>
