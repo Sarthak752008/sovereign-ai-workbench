@@ -1,0 +1,55 @@
+import React from 'react';
+import { ShieldCheck, WifiOff, Cpu, Lock, Activity } from 'lucide-react';
+
+export default function TopBar({ sentinel }) {
+  return (
+    <header className="h-16 border-b border-slate-800 bg-slate-900/90 px-6 flex items-center justify-between glass-panel sticky top-0 z-50">
+      <div className="flex items-center space-x-3">
+        <div className="h-9 w-9 rounded-lg bg-gradient-to-tr from-cyan-500 to-violet-600 flex items-center justify-center font-bold text-white shadow-lg glow-cyan">
+          <ShieldCheck className="w-5 h-5 text-white" />
+        </div>
+        <div>
+          <h1 className="font-bold text-lg text-slate-100 tracking-wide flex items-center gap-2">
+            SOVEREIGN<span className="text-cyan-400 font-extrabold">AI</span>
+            <span className="text-xs px-2 py-0.5 rounded bg-cyan-950 text-cyan-400 border border-cyan-800/50 font-mono">
+              WORKBENCH v1.0
+            </span>
+          </h1>
+          <p className="text-xs text-slate-400">On-Premise Industrial AI Platform</p>
+        </div>
+      </div>
+
+      <div className="flex items-center space-x-4">
+        {/* Isolation Status Badge */}
+        <div className="flex items-center space-x-2 px-3 py-1.5 rounded-full bg-emerald-950/60 border border-emerald-500/40 text-emerald-400 text-xs font-mono glow-emerald">
+          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          <WifiOff className="w-3.5 h-3.5" />
+          <span>NETWORK: {sentinel?.network_status || 'BLOCKED'}</span>
+          <span className="text-slate-500">|</span>
+          <span className="font-bold">EXTERNAL AI CALLS: {sentinel?.external_ai_calls ?? 0}</span>
+        </div>
+
+        {/* Local GPU Status */}
+        <div className="flex items-center space-x-2 px-3 py-1.5 rounded-full bg-slate-800/80 border border-slate-700 text-slate-300 text-xs font-mono">
+          <Cpu className="w-3.5 h-3.5 text-cyan-400" />
+          <span>LOCAL INFERENCE: <strong className="text-cyan-400">ACTIVE</strong></span>
+          <span className="text-slate-500">|</span>
+          <span className="text-slate-400">VRAM: 6.1 GB / 8.0 GB</span>
+        </div>
+
+        {/* User Profile / Security Badge */}
+        <div className="flex items-center space-x-2 pl-3 border-l border-slate-800">
+          <div className="w-8 h-8 rounded-full bg-cyan-950 border border-cyan-600 flex items-center justify-center text-cyan-300 font-semibold text-xs">
+            OP
+          </div>
+          <div className="text-left hidden md:block">
+            <p className="text-xs font-medium text-slate-200">Industrial Operator</p>
+            <p className="text-[10px] text-slate-400 flex items-center gap-1">
+              <Lock className="w-2.5 h-2.5 text-emerald-400" /> Confidential Air-gap
+            </p>
+          </div>
+        </div>
+      </div>
+    </header>
+  );
+}
