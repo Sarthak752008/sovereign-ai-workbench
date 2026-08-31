@@ -1,0 +1,6 @@
+Equipment_ID,Location,Metric_PSI,Vibration_mm_s,Status,Risk_Score
+PRV-101,Refinery_Unit_A,118.5,1.2,OPERATIONAL,LOW
+PRV-102,Refinery_Unit_A,142.8,4.8,CRITICAL_EXCEEDED,HIGH
+PUMP-201,Turbine_Bay_B,95.0,0.8,OPERATIONAL,LOW
+VALVE-304,Pipeline_Junction_C,137.2,3.9,WARNING_ELEVATED,HIGH
+COMP-402,Compressor_House_D,110.0,1.5,OPERATIONAL,MEDIUM
