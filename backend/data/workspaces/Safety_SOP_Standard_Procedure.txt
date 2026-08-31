@@ -1,0 +1,3 @@
+# SAFETY SOP-17: INDUSTRIAL PRESSURE RELIEF VALVES
+Maximum Operating Pressure Ceiling: 120.0 PSI.
+Over-pressure Threshold: Any reading exceeding 135.0 PSI constitutes a CRITICAL SAFETY DEVIATION.

@@ -12,7 +12,7 @@ from app.security.policy_engine import policy_engine
 
 class SovereignModelRouter:
     """
-    Policy-aware Model Router.
+    Policy-aware Model Router (TriForge Engine).
     Deterministically selects appropriate local model based on prompt content, modality, complexity, and risk.
     """
     def classify_task(self, prompt: str, modality: str) -> TaskType:
@@ -23,9 +23,9 @@ class SovereignModelRouter:
             return TaskType.CODING
         if any(w in prompt_lower for w in ["excel", "xlsx", "spreadsheet", "csv", "table", "calculation", "formula", "financial"]):
             return TaskType.SPREADSHEET_ANALYSIS
-        if any(w in prompt_lower for w in ["analyze", "risk", "compliance", "policy", "reason", "proof", "evaluate"]):
+        if any(w in prompt_lower for w in ["analyze", "analysis", "safety", "risk", "compliance", "policy", "reason", "proof", "evaluate", "sop"]):
             return TaskType.REASONING
-        if any(w in prompt_lower for w in ["report", "document", "pdf", "docx", "manual", "sop", "extract"]):
+        if any(w in prompt_lower for w in ["report", "document", "pdf", "docx", "manual", "extract"]):
             return TaskType.DOCUMENT_ANALYSIS
         return TaskType.SUMMARIZATION
 
