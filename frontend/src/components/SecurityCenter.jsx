@@ -1,5 +1,5 @@
 import React from 'react';
-import { ShieldCheck, WifiOff, Cpu, Lock, Terminal, Activity, AlertShield, CheckCircle2, History } from 'lucide-react';
+import { ShieldCheck, WifiOff, Cpu, Lock, Terminal, Activity, AlertTriangle, CheckCircle2, History } from 'lucide-react';
 
 export default function SecurityCenter({ sentinel, auditEvents, loading, error }) {
   return (
