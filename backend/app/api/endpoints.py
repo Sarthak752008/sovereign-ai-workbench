@@ -102,9 +102,17 @@ async def upload_document(file: UploadFile = File(...)):
     audit_ledger.record_event(
         action="DOCUMENT_UPLOAD",
         document=file.filename,
-        details={"size": len(content), "pages": doc_data["pages"]}
+        details={"size": len(content), "pages": doc_data["pages"], "chunks": len(doc_data["chunks"])}
     )
-    return {"status": "success", "filename": file.filename, "pages": doc_data["pages"]}
+    return {
+        "status": "success",
+        "filename": file.filename,
+        "pages": doc_data["pages"],
+        "extracted_text": doc_data["extracted_text"][:500],  # First 500 chars for preview
+        "chunks_count": len(doc_data["chunks"]),
+        "message": f"Uploaded & processed {file.filename} ({doc_data['pages']} pages). Local vector RAG index updated with {len(doc_data['chunks'])} chunks."
+    }
+
 
 @router.delete("/documents/{filename}")
 async def delete_document(filename: str):
