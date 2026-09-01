@@ -1,93 +1,112 @@
 from typing import List, Dict, Any
 
+
 class LocalVectorStore:
     """
     Local-first vector knowledge index for confidential RAG.
-    Maintains chunk embeddings and metadata citations.
+    Stores document chunks and performs keyword-based relevance search.
     """
     def __init__(self):
         self._chunks: List[Dict[str, Any]] = []
-        # Initialize with SOP for testing if needed
         self._initialize_defaults()
 
     def _initialize_defaults(self):
-        """Initialize with default SOP for demo purposes"""
-        default_chunks = [
-            {
-                "chunk_id": "SOP-17_p13",
-                "filename": "Safety_SOP_Standard_Procedure.pdf",
-                "text": "SOP-17 Section 4.2: Pressure relief valve inspection must occur every 90 days with documented calibration logs. Maximum Operating Pressure Ceiling: 120.0 PSI. Over-pressure Threshold: Any reading exceeding 135.0 PSI constitutes a CRITICAL SAFETY DEVIATION.",
-                "page": 13
-            }
-        ]
-        self._chunks.extend(default_chunks)
+        """Initialize with default SOP for demo purposes."""
+        self._chunks.append({
+            "chunk_id": "SOP-17_p13",
+            "filename": "Safety_SOP_Standard_Procedure.pdf",
+            "text": (
+                "SOP-17 Section 4.2: Pressure relief valve inspection must occur every "
+                "90 days with documented calibration logs. Maximum Operating Pressure "
+                "Ceiling: 120.0 PSI. Over-pressure Threshold: Any reading exceeding "
+                "135.0 PSI constitutes a CRITICAL SAFETY DEVIATION."
+            ),
+            "page": 13,
+        })
 
     def ingest_document(self, doc_data: Dict[str, Any]):
-        """Ingest document and update chunks"""
+        """Ingest document chunks, replacing any previous version of the same file."""
         filename = doc_data["filename"]
-        # Clear old chunks from same filename to avoid duplicates
         self._chunks = [c for c in self._chunks if c["filename"] != filename]
-        
-        # Add new chunks from document
-        for idx, chunk in enumerate(doc_data["chunks"]):
+
+        for idx, chunk_text in enumerate(doc_data["chunks"]):
             self._chunks.append({
                 "chunk_id": f"{filename}_{idx}",
                 "filename": filename,
-                "text": chunk,
-                "page": doc_data.get("pages", 1)
+                "text": chunk_text,
+                "page": doc_data.get("pages", 1),
             })
 
     def search(self, query: str, top_k: int = 5) -> List[Dict[str, Any]]:
         """
-        Search documents using keyword matching + improved ranking.
-        For summarization queries, prioritizes uploaded non-default document chunks.
-        Returns top-k most relevant chunks based on query context.
+        Search chunks by keyword overlap.
+        Prioritizes user-uploaded documents over the default SOP.
+        Returns all uploaded chunks for broad queries like summaries.
         """
         if not self._chunks:
             return []
 
-        query_lower = query.lower() if query else ""
-        sum_keywords = ["summary", "summarize", "overview", "brief", "short summary", "explain", "detail", "pdf", "report", "onepager", "document"]
-        is_summary_query = any(k in query_lower for k in sum_keywords)
+        # Separate uploaded docs from default SOP
+        uploaded = [c for c in self._chunks if c["filename"] != "Safety_SOP_Standard_Procedure.pdf"]
+        default = [c for c in self._chunks if c["filename"] == "Safety_SOP_Standard_Procedure.pdf"]
 
-        # For summary queries: prioritize uploaded documents (ignore default SOP unless it's the only content)
-        if is_summary_query:
-            uploaded_chunks = [c for c in self._chunks if c["filename"] != "Safety_SOP_Standard_Procedure.pdf"]
-            if uploaded_chunks:
-                # Return all uploaded document chunks sorted by filename (stable order)
-                return sorted(uploaded_chunks, key=lambda x: x.get("chunk_id", ""))[:top_k]
-            # Fallback to default if no uploaded docs
-            return self._chunks[:top_k]
+        # If there are uploaded documents, prefer them for any query
+        # (user likely wants to ask about what they uploaded)
+        if uploaded:
+            if not query or not query.strip():
+                return uploaded[:top_k]
 
-        # Empty or whitespace-only queries: return top-k chunks by default
+            query_lower = query.lower()
+            query_words = set(query_lower.split())
+
+            # Score each uploaded chunk
+            scored = []
+            for chunk in uploaded:
+                text_words = set(chunk["text"].lower().split())
+                overlap = len(query_words & text_words)
+                score = overlap / max(len(query_words), 1)
+                scored.append((score, chunk))
+
+            # Also score default chunks but with penalty
+            for chunk in default:
+                text_words = set(chunk["text"].lower().split())
+                overlap = len(query_words & text_words)
+                score = (overlap / max(len(query_words), 1)) - 0.3
+                scored.append((score, chunk))
+
+            scored.sort(key=lambda x: x[0], reverse=True)
+            results = [item[1] for item in scored[:top_k]]
+
+            # If all scores are 0 (no keyword match), still return uploaded chunks
+            # because user probably wants context from their uploaded docs
+            if all(s[0] <= 0 for s in scored[:top_k]):
+                return uploaded[:top_k]
+
+            return results
+
+        # No uploaded docs — use default chunks with keyword search
         if not query or not query.strip():
-            return self._chunks[:top_k]
-        
-        # Keyword-based search for non-summary queries
-        query_words = set(query_lower.split())
+            return default[:top_k]
+
+        query_words = set(query.lower().split())
         scored = []
-        
-        for chunk in self._chunks:
+        for chunk in default:
             text_words = set(chunk["text"].lower().split())
-            overlap = len(query_words.intersection(text_words))
-            # Give bonus to uploaded non-default docs
-            doc_bonus = 0.5 if chunk["filename"] != "Safety_SOP_Standard_Procedure.pdf" else 0.0
-            score = (overlap / max(len(query_words), 1)) + doc_bonus
+            overlap = len(query_words & text_words)
+            score = overlap / max(len(query_words), 1)
             scored.append((score, chunk))
-        
-        # Sort by relevance score (highest first)
+
         scored.sort(key=lambda x: x[0], reverse=True)
-        
-        results = [item[1] for item in scored[:top_k]]
-        return results if results else self._chunks[:top_k]
+        return [item[1] for item in scored[:top_k]]
 
     def list_chunks(self) -> List[Dict[str, Any]]:
-        """List all ingested chunks"""
-        return self._chunks if self._chunks else []
+        """List all ingested chunks."""
+        return self._chunks[:]
 
     def clear(self):
-        """Clear all chunks and reset to default SOP"""
-        self._chunks = []
+        """Clear all chunks and reset to default."""
+        self._chunks.clear()
         self._initialize_defaults()
+
 
 vector_store = LocalVectorStore()
