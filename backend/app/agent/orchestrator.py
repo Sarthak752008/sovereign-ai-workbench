@@ -115,7 +115,7 @@ class AgentOrchestrator:
             provider=fast_provider,
             system_prompt=SYSTEM_PROMPT,
             temperature=0.7,
-            max_tokens=1024,
+            max_tokens=350,
             fallback_to_external=True,
         )
 

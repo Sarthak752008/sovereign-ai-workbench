@@ -42,10 +42,10 @@ class LocalModelGateway:
             "stream": False,
             "options": {
                 "temperature": temperature,
-                "num_predict": min(max_tokens, 1024),
+                "num_predict": min(max_tokens, 350),
                 "top_k": 40,
                 "top_p": 0.9,
-                "num_ctx": 4096,
+                "num_ctx": 2048,
             },
         }
         if system_prompt:

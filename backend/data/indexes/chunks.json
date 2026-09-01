@@ -6,39 +6,21 @@
     "page": 13
   },
   {
-    "chunk_id": "Safety_SOP_Standard_Procedure.txt_0",
-    "filename": "Safety_SOP_Standard_Procedure.txt",
-    "text": "# SAFETY SOP-17: INDUSTRIAL PRESSURE RELIEF VALVES Maximum Operating Pressure Ceiling: 120.0 PSI. Over-pressure Threshold: Any reading exceeding 135.0 PSI constitutes a CRITICAL SAFETY DEVIATION.",
+    "chunk_id": "SOP-17_p13",
+    "filename": "Safety_SOP_Standard_Procedure.pdf",
+    "text": "SOP-17 Section 4.2: Pressure relief valve inspection must occur every 90 days with documented calibration logs. Maximum Operating Pressure Ceiling: 120.0 PSI. Over-pressure Threshold: Any reading exceeding 135.0 PSI constitutes a CRITICAL SAFETY DEVIATION.",
+    "page": 13
+  },
+  {
+    "chunk_id": "test.txt_0",
+    "filename": "test.txt",
+    "text": "This is a confidential test document about safety SOP and pressure limits.",
     "page": 1
   },
   {
-    "chunk_id": "Refinery_Manual.pdf_0",
-    "filename": "Refinery_Manual.pdf",
-    "text": "Section 1: Operating temperature ceiling is 450 degrees Celsius.",
-    "page": 1
-  },
-  {
-    "chunk_id": "Refinery_Manual.pdf_1",
-    "filename": "Refinery_Manual.pdf",
-    "text": "Section 2: Emergency shutdown valve location is Terminal 4.",
-    "page": 1
-  },
-  {
-    "chunk_id": "Test_Doc.txt_0",
-    "filename": "Test_Doc.txt",
-    "text": "Chunk text content test.",
-    "page": 1
-  },
-  {
-    "chunk_id": "Turbine_Maintenance_Manual.txt_0",
-    "filename": "Turbine_Maintenance_Manual.txt",
-    "text": "# INDUSTRIAL TURBINE MAINTENANCE MANUAL — REV 4.2 Section 3.1: Lubrication Schedule The primary main-bearing oil reservoir must be inspected every 30 days. Approved lubricant: Mobil SHC 630 Synthetic Gear Oil. Operating Temperature Limit: Bearing temperature must not exceed 85.0 degrees Celsius. Vibration Alarm Threshold: Peak vibration exceeding 4.5 mm/s requires emergency shutdown.",
-    "page": 1
-  },
-  {
-    "chunk_id": "Turbine_Manual_SIH.txt_0",
-    "filename": "Turbine_Manual_SIH.txt",
-    "text": "# INDUSTRIAL TURBINE MAINTENANCE MANUAL — REV 4.2 Section 3.1: Lubrication Schedule The primary main-bearing oil reservoir must be inspected every 30 days. Approved lubricant: Mobil SHC 630 Synthetic Gear Oil. Operating Temperature Limit: Bearing temperature must not exceed 85.0 degrees Celsius. Vibration Alarm Threshold: Peak vibration exceeding 4.5 mm/s requires emergency shutdown.",
+    "chunk_id": "test.pdf_0",
+    "filename": "test.pdf",
+    "text": "[OCR Scanned Page 1]: Technical visual inspection diagram / table extracted.",
     "page": 1
   }
 ]
