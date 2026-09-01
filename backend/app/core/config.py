@@ -44,7 +44,7 @@ class Settings(BaseSettings):
 
     # Model preferences for external APIs
     GEMINI_MODEL: str = "gemini-1.5-pro"
-    GROQ_MODEL: str = "mixtral-8x7b-32768"
+    GROQ_MODEL: str = "qwen/qwen3.8-27b"
 
     # Database
     DATABASE_URL: str = "sqlite:///./sovereign_workbench.db"
