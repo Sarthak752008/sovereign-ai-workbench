@@ -1,14 +1,25 @@
+import os
+import json
+import logging
 from typing import List, Dict, Any
+from app.core.config import settings
+
+logger = logging.getLogger(__name__)
+
+_PERSISTENCE_FILE = os.path.join(settings.VECTOR_DB_DIR, "chunks.json")
 
 
 class LocalVectorStore:
     """
     Local-first vector knowledge index for confidential RAG.
     Stores document chunks and performs keyword-based relevance search.
+    Persists chunks to JSON file so they survive restarts.
     """
     def __init__(self):
         self._chunks: List[Dict[str, Any]] = []
-        self._initialize_defaults()
+        self._load_persisted()
+        if not self._chunks:
+            self._initialize_defaults()
 
     def _initialize_defaults(self):
         """Initialize with default SOP for demo purposes."""
@@ -23,6 +34,27 @@ class LocalVectorStore:
             ),
             "page": 13,
         })
+        self._persist()
+
+    def _load_persisted(self):
+        """Load chunks from JSON file if it exists."""
+        if os.path.exists(_PERSISTENCE_FILE):
+            try:
+                with open(_PERSISTENCE_FILE, "r", encoding="utf-8") as f:
+                    self._chunks = json.load(f)
+                logger.info(f"Loaded {len(self._chunks)} RAG chunks from {_PERSISTENCE_FILE}")
+            except (json.JSONDecodeError, OSError) as e:
+                logger.warning(f"Could not load persisted chunks: {e}")
+                self._chunks = []
+
+    def _persist(self):
+        """Save chunks to JSON file."""
+        try:
+            os.makedirs(os.path.dirname(_PERSISTENCE_FILE), exist_ok=True)
+            with open(_PERSISTENCE_FILE, "w", encoding="utf-8") as f:
+                json.dump(self._chunks, f, ensure_ascii=False, indent=2)
+        except OSError as e:
+            logger.error(f"Failed to persist chunks: {e}")
 
     def ingest_document(self, doc_data: Dict[str, Any]):
         """Ingest document chunks, replacing any previous version of the same file."""
@@ -36,6 +68,7 @@ class LocalVectorStore:
                 "text": chunk_text,
                 "page": doc_data.get("pages", 1),
             })
+        self._persist()
 
     def search(self, query: str, top_k: int = 5) -> List[Dict[str, Any]]:
         """
@@ -51,7 +84,6 @@ class LocalVectorStore:
         default = [c for c in self._chunks if c["filename"] == "Safety_SOP_Standard_Procedure.pdf"]
 
         # If there are uploaded documents, prefer them for any query
-        # (user likely wants to ask about what they uploaded)
         if uploaded:
             if not query or not query.strip():
                 return uploaded[:top_k]
@@ -77,8 +109,7 @@ class LocalVectorStore:
             scored.sort(key=lambda x: x[0], reverse=True)
             results = [item[1] for item in scored[:top_k]]
 
-            # If all scores are 0 (no keyword match), still return uploaded chunks
-            # because user probably wants context from their uploaded docs
+            # If all scores are 0, still return uploaded chunks
             if all(s[0] <= 0 for s in scored[:top_k]):
                 return uploaded[:top_k]
 
@@ -106,6 +137,13 @@ class LocalVectorStore:
     def clear(self):
         """Clear all chunks and reset to default."""
         self._chunks.clear()
+        self._initialize_defaults()
+        # Remove persistence file on explicit reset
+        if os.path.exists(_PERSISTENCE_FILE):
+            try:
+                os.remove(_PERSISTENCE_FILE)
+            except OSError:
+                pass
         self._initialize_defaults()
 
 

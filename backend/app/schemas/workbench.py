@@ -125,6 +125,7 @@ class TaskCreateRequest(BaseModel):
     title: str
     prompt: str
     confidentiality: ConfidentialityLevel = ConfidentialityLevel.CONFIDENTIAL
+    provider: Optional[str] = None
     document_ids: List[str] = []
 
 class TaskResponse(BaseModel):

@@ -1,4 +1,4 @@
-const API_HOST = import.meta.env.VITE_API_BASE_URL || 'http://10.21.128.122:8000';
+const API_HOST = import.meta.env.VITE_API_BASE_URL || '';
 const API_BASE = `${API_HOST.replace(/\/$/, '')}/api/v1`;
 
 export async function fetchSentinelStatus() {
@@ -44,12 +44,12 @@ export async function routeTask(prompt, confidentiality = 'CONFIDENTIAL', modali
   return null;
 }
 
-export async function createTask(title, prompt, confidentiality = 'CONFIDENTIAL') {
+export async function createTask(title, prompt, confidentiality = 'CONFIDENTIAL', provider = null) {
   try {
     const res = await fetch(`${API_BASE}/tasks`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title, prompt, confidentiality })
+      body: JSON.stringify({ title, prompt, confidentiality, provider: provider || null })
     });
     if (res.ok) return await res.json();
   } catch (e) {
@@ -167,6 +167,40 @@ export async function resetWorkbench() {
   try {
     const res = await fetch(`${API_BASE}/workbench/reset`, {
       method: 'POST'
+    });
+    if (res.ok) return await res.json();
+  } catch (e) {
+    console.error(e);
+  }
+  return null;
+}
+
+export async function fetchSystemHealth() {
+  try {
+    const res = await fetch(`${API_BASE}/system/health`);
+    if (res.ok) return await res.json();
+  } catch (e) {
+    console.error('Health check failed:', e);
+  }
+  return { status: 'FAILED', reason: 'Cannot reach backend', services: {} };
+}
+
+export async function fetchSystemPolicy() {
+  try {
+    const res = await fetch(`${API_BASE}/system/policy`);
+    if (res.ok) return await res.json();
+  } catch (e) {
+    console.error(e);
+  }
+  return { cloud_policy: 'LOCAL_ONLY', providers: {} };
+}
+
+export async function updateSystemPolicy(policy) {
+  try {
+    const res = await fetch(`${API_BASE}/system/policy`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cloud_policy: policy })
     });
     if (res.ok) return await res.json();
   } catch (e) {

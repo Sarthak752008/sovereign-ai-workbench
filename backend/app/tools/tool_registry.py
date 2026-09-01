@@ -30,6 +30,13 @@ class ToolRegistry:
         except ImportError:
             with open(output_path, "w", encoding="utf-8") as f:
                 f.write(f"# {title}\n\n" + "\n".join([f"## {s.get('heading')}\n{s.get('content')}" for s in sections]))
+        
+        from app.audit.ledger import audit_ledger
+        audit_ledger.record_event(
+            action="DOCX_GENERATED",
+            document=filename,
+            details={"title": title, "sections_count": len(sections), "path": output_path}
+        )
         return {"status": "success", "file_path": output_path, "filename": filename}
 
     def generate_pptx(self, filename: str, title: str, slides: List[Dict[str, str]]) -> Dict[str, Any]:
@@ -48,6 +55,13 @@ class ToolRegistry:
         except ImportError:
             with open(output_path, "w", encoding="utf-8") as f:
                 f.write(f"PRESENTATION: {title}\n" + "\n".join([f"SLIDE: {s.get('title')}\n{s.get('content')}" for s in slides]))
+        
+        from app.audit.ledger import audit_ledger
+        audit_ledger.record_event(
+            action="PPTX_GENERATED",
+            document=filename,
+            details={"title": title, "slides_count": len(slides), "path": output_path}
+        )
         return {"status": "success", "file_path": output_path, "filename": filename}
 
     def generate_xlsx(self, filename: str, headers: List[str], rows: List[List[Any]]) -> Dict[str, Any]:
@@ -64,6 +78,13 @@ class ToolRegistry:
         except ImportError:
             with open(output_path, "w", encoding="utf-8") as f:
                 f.write(",".join(headers) + "\n" + "\n".join([",".join([str(x) for x in r]) for r in rows]))
+        
+        from app.audit.ledger import audit_ledger
+        audit_ledger.record_event(
+            action="XLSX_GENERATED",
+            document=filename,
+            details={"headers": headers, "rows_count": len(rows), "path": output_path}
+        )
         return {"status": "success", "file_path": output_path, "filename": filename}
 
 tool_registry = ToolRegistry()

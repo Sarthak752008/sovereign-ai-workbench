@@ -1,7 +1,20 @@
 import React from 'react';
-import { ShieldCheck, WifiOff, Cpu, Lock, Activity } from 'lucide-react';
+import { ShieldCheck, WifiOff, Cpu, Lock, Activity, AlertTriangle, CheckCircle, XCircle } from 'lucide-react';
 
-export default function TopBar({ sentinel }) {
+export default function TopBar({ sentinel, systemHealth }) {
+  const healthStatus = systemHealth?.status || 'CHECKING';
+  const ollamaStatus = systemHealth?.services?.ollama;
+  const modelCount = ollamaStatus?.models?.length || 0;
+
+  const healthBadge = {
+    READY: { color: 'bg-emerald-950/60 border-emerald-500/40 text-emerald-400', dot: 'bg-emerald-400', icon: CheckCircle, label: 'READY' },
+    DEGRADED: { color: 'bg-amber-950/60 border-amber-500/40 text-amber-400', dot: 'bg-amber-400', icon: AlertTriangle, label: 'DEGRADED' },
+    FAILED: { color: 'bg-red-950/60 border-red-500/40 text-red-400', dot: 'bg-red-400', icon: XCircle, label: 'FAILED' },
+    CHECKING: { color: 'bg-slate-800/60 border-slate-600/40 text-slate-400', dot: 'bg-slate-400', icon: Activity, label: 'CHECKING...' },
+  }[healthStatus] || { color: 'bg-slate-800/60 border-slate-600/40 text-slate-400', dot: 'bg-slate-400', icon: Activity, label: healthStatus };
+
+  const HealthIcon = healthBadge.icon;
+
   return (
     <header className="h-16 border-b border-slate-800 bg-slate-900/90 px-6 flex items-center justify-between glass-panel sticky top-0 z-50">
       <div className="flex items-center space-x-3">
@@ -20,24 +33,33 @@ export default function TopBar({ sentinel }) {
       </div>
 
       <div className="flex items-center space-x-4">
+        {/* System Health Badge */}
+        <div className={`flex items-center space-x-2 px-3 py-1.5 rounded-full border text-xs font-mono ${healthBadge.color}`}>
+          <span className={`w-2 h-2 rounded-full ${healthBadge.dot} ${healthStatus === 'READY' ? 'animate-pulse' : ''}`}></span>
+          <HealthIcon className="w-3.5 h-3.5" />
+          <span className="font-bold">{healthBadge.label}</span>
+          {systemHealth?.reason && healthStatus !== 'READY' && (
+            <span className="text-[10px] opacity-75">— {systemHealth.reason}</span>
+          )}
+        </div>
+
         {/* Isolation Status Badge */}
         <div className="flex items-center space-x-2 px-3 py-1.5 rounded-full bg-emerald-950/60 border border-emerald-500/40 text-emerald-400 text-xs font-mono glow-emerald">
-          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
           <WifiOff className="w-3.5 h-3.5" />
           <span>NETWORK: {sentinel?.network_status || 'BLOCKED'}</span>
           <span className="text-slate-500">|</span>
-          <span className="font-bold">EXTERNAL AI CALLS: {sentinel?.external_ai_calls ?? 0}</span>
+          <span className="font-bold">EXT AI: {sentinel?.external_ai_calls ?? 0}</span>
         </div>
 
-        {/* Local GPU Status */}
+        {/* Local GPU / Ollama Status */}
         <div className="flex items-center space-x-2 px-3 py-1.5 rounded-full bg-slate-800/80 border border-slate-700 text-slate-300 text-xs font-mono">
           <Cpu className="w-3.5 h-3.5 text-cyan-400" />
-          <span>LOCAL INFERENCE: <strong className="text-cyan-400">ACTIVE</strong></span>
-          <span className="text-slate-500">|</span>
-          <span className="text-slate-400">VRAM: 6.1 GB / 8.0 GB</span>
+          <span>OLLAMA: <strong className={ollamaStatus?.status === 'online' ? 'text-cyan-400' : 'text-red-400'}>
+            {ollamaStatus?.status === 'online' ? `${modelCount} MODEL${modelCount !== 1 ? 'S' : ''}` : 'OFFLINE'}
+          </strong></span>
         </div>
 
-        {/* User Profile / Security Badge */}
+        {/* User Profile */}
         <div className="flex items-center space-x-2 pl-3 border-l border-slate-800">
           <div className="w-8 h-8 rounded-full bg-cyan-950 border border-cyan-600 flex items-center justify-center text-cyan-300 font-semibold text-xs">
             OP

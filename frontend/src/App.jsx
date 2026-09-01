@@ -19,7 +19,9 @@ import {
   decideApproval, 
   fetchAuditEvents, 
   uploadDocument,
-  resetWorkbench
+  resetWorkbench,
+  fetchSystemHealth,
+  fetchSystemPolicy
 } from './services/api';
 import { Play, Upload, ShieldCheck, Sparkles, AlertCircle, FileText, CheckCircle, RotateCcw } from 'lucide-react';
 
@@ -35,6 +37,8 @@ export default function App() {
   const [uploadStatus, setUploadStatus] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [systemHealth, setSystemHealth] = useState(null);
+  const [retryPrompt, setRetryPrompt] = useState('');
 
   const loadData = async () => {
     try {
@@ -46,6 +50,8 @@ export default function App() {
       setApprovals(a);
       const ev = await fetchAuditEvents();
       setAuditEvents(ev);
+      const health = await fetchSystemHealth();
+      setSystemHealth(health);
     } catch (err) {
       setError('Failed to sync backend state');
     }
@@ -60,23 +66,35 @@ export default function App() {
   const handleRoutePreview = async (e) => {
     const text = e.target.value;
     setPrompt(text);
-    if (text.length > 5) {
-      const route = await routeTask(text, confidentiality);
-      if (route) setActiveRoute(route);
+    if (text.trim().length > 5) {
+      const decision = await routeTask(text, confidentiality);
+      if (decision) setActiveRoute(decision);
     }
   };
 
   const handleRunTask = async () => {
     if (!prompt.trim()) return;
     setLoading(true);
+    setError('');
+    const savedPrompt = prompt;
     try {
-      const task = await createTask('Industrial Task Run', prompt, confidentiality);
+      const task = await createTask('Industrial Task Run', prompt, confidentiality, provider === 'auto' ? null : provider);
       if (task) {
-        setPrompt('');
+        if (task.output && (task.output.includes('[LOCAL MODEL UNAVAILABLE]') || task.output.includes('[LOCAL MODEL ERROR]'))) {
+          setRetryPrompt(savedPrompt);
+          setError('Local model unavailable. Check Ollama status and try again.');
+        } else {
+          setPrompt('');
+          setRetryPrompt('');
+        }
         await loadData();
+      } else {
+        setRetryPrompt(savedPrompt);
+        setError('Failed to submit task. Backend may be unreachable.');
       }
     } catch (err) {
-      setError('Failed to submit task to orchestrator');
+      setRetryPrompt(savedPrompt);
+      setError(`Failed to submit task: ${err.message || 'Connection error'}`);
     } finally {
       setLoading(false);
     }
@@ -119,7 +137,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-950 text-slate-100">
-      <TopBar sentinel={sentinel} />
+      <TopBar sentinel={sentinel} systemHealth={systemHealth} />
 
       <div className="flex flex-1 overflow-hidden">
         <Sidebar 
@@ -177,6 +195,34 @@ export default function App() {
               </div>
             )}
           </div>
+
+          {error && (
+            <div className="p-4 rounded-xl bg-red-950/40 border border-red-800/50 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <AlertCircle className="w-5 h-5 text-red-400 shrink-0" />
+                <div>
+                  <p className="text-sm text-red-300 font-medium">{error}</p>
+                  {systemHealth?.reason && <p className="text-xs text-red-400/70 mt-0.5">{systemHealth.reason}</p>}
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                {retryPrompt && (
+                  <button
+                    onClick={() => { setPrompt(retryPrompt); setError(''); }}
+                    className="px-3 py-1.5 rounded bg-red-900/50 hover:bg-red-800/50 text-red-300 text-xs font-semibold border border-red-700/50 transition"
+                  >
+                    Restore Prompt & Retry
+                  </button>
+                )}
+                <button
+                  onClick={() => setError('')}
+                  className="px-3 py-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs border border-slate-700 transition"
+                >
+                  Dismiss
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Page Routing Views */}
           {activeTab === 'workbench' && (

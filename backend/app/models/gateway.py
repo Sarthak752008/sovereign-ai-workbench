@@ -1,10 +1,13 @@
+import time
 import httpx
 import logging
 from typing import Dict, Any, List, Optional
 from app.core.config import settings
-from app.models.registry import model_registry
 
 logger = logging.getLogger(__name__)
+
+# Cache refresh interval in seconds
+_MODEL_CACHE_TTL = 60
 
 
 class LocalModelGateway:
@@ -16,6 +19,7 @@ class LocalModelGateway:
     def __init__(self):
         self.ollama_url = settings.OLLAMA_BASE_URL
         self._available_models: List[str] = []
+        self._last_refresh: float = 0
 
     async def generate(
         self,
@@ -38,7 +42,10 @@ class LocalModelGateway:
             "stream": False,
             "options": {
                 "temperature": temperature,
-                "num_predict": max_tokens,
+                "num_predict": min(max_tokens, 1024),
+                "top_k": 40,
+                "top_p": 0.9,
+                "num_ctx": 4096,
             },
         }
         if system_prompt:
@@ -117,7 +124,7 @@ class LocalModelGateway:
         Check if the requested model is available in Ollama.
         If not, fall back to the first available model.
         """
-        if not self._available_models:
+        if not self._available_models or self._cache_expired():
             await self._refresh_model_list()
 
         if requested_model in self._available_models:
@@ -138,6 +145,10 @@ class LocalModelGateway:
 
         return requested_model  # Let Ollama report the error
 
+    def _cache_expired(self) -> bool:
+        """Check if the model cache needs refreshing."""
+        return (time.time() - self._last_refresh) > _MODEL_CACHE_TTL
+
     async def _refresh_model_list(self):
         """Fetch list of models currently available in Ollama."""
         try:
@@ -146,8 +157,19 @@ class LocalModelGateway:
                 if res.status_code == 200:
                     models = res.json().get("models", [])
                     self._available_models = [m["name"] for m in models]
+                    self._last_refresh = time.time()
+                    # Sync with model router
+                    self._sync_router()
         except Exception:
             self._available_models = []
+
+    def _sync_router(self):
+        """Update the model router with currently available models."""
+        try:
+            from app.router.model_router import model_router
+            model_router.set_available_models(self._available_models)
+        except Exception:
+            pass
 
     async def health_check(self) -> Dict[str, Any]:
         """Check Ollama connectivity and list available models."""
@@ -157,6 +179,8 @@ class LocalModelGateway:
                 if res.status_code == 200:
                     models = res.json().get("models", [])
                     self._available_models = [m["name"] for m in models]
+                    self._last_refresh = time.time()
+                    self._sync_router()
                     return {
                         "status": "online",
                         "provider": "ollama",

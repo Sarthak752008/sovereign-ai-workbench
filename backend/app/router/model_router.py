@@ -1,5 +1,6 @@
 import re
-from typing import List
+import logging
+from typing import List, Optional
 from app.schemas.workbench import (
     RouteRequest,
     RouteDecision,
@@ -10,16 +11,20 @@ from app.schemas.workbench import (
 from app.models.registry import model_registry
 from app.security.policy_engine import policy_engine
 
+logger = logging.getLogger(__name__)
+
+
 class SovereignModelRouter:
     """
     Policy-aware Model Router (TriForge Engine).
-    Deterministically selects appropriate local model based on prompt content, modality, complexity, and risk.
+    Deterministically selects appropriate local model based on prompt content,
+    modality, complexity, risk, and model capabilities.
     """
     def classify_task(self, prompt: str, modality: str) -> TaskType:
         prompt_lower = prompt.lower()
         if modality == "vision" or any(w in prompt_lower for w in ["image", "photo", "drawing", "diagram", "p&id", "scanned", "ocr"]):
             return TaskType.VISION_ANALYSIS
-        if any(w in prompt_lower for w in ["code", "python", "script", "function", "bug", "algorithm", "developer", "git"]):
+        if any(w in prompt_lower for w in ["code", "python", "script", "function", "bug", "algorithm", "developer", "git", "c++", "java", "javascript"]):
             return TaskType.CODING
         if any(w in prompt_lower for w in ["excel", "xlsx", "spreadsheet", "csv", "table", "calculation", "formula", "financial"]):
             return TaskType.SPREADSHEET_ANALYSIS
@@ -32,7 +37,7 @@ class SovereignModelRouter:
     def route(self, request: RouteRequest) -> RouteDecision:
         # 1. Classify task
         task_type = request.task_type or self.classify_task(request.task_prompt, request.modality)
-        
+
         # 2. Determine risk level
         risk_level = RiskLevel.LOW
         if task_type in [TaskType.CODING, TaskType.SPREADSHEET_ANALYSIS]:
@@ -47,15 +52,10 @@ class SovereignModelRouter:
         )
 
         # 4. Model selection strategy
-        available = model_registry.list_models()
-        selected_model = "llama3.1:8b"
-        reason = ""
-        alternatives: List[str] = []
-
         if task_type == TaskType.VISION_ANALYSIS:
             selected_model = "qwen2-vl:7b"
             reason = "Task contains visual/scanned elements. Routed to local Vision-Language Model Qwen 2 VL."
-            alternatives = ["llama3.1:8b"]
+            alternatives = ["llama3.1:8b", "qwen2.5-coder:7b"]
         elif task_type == TaskType.CODING:
             selected_model = "qwen2.5-coder:7b"
             reason = "Task involves software engineering and script synthesis. Routed to Qwen 2.5 Coder."
