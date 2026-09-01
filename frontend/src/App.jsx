@@ -78,7 +78,7 @@ export default function App() {
     setError('');
     const savedPrompt = prompt;
     try {
-      const task = await createTask('Industrial Task Run', prompt, confidentiality, provider === 'auto' ? null : provider);
+      const task = await createTask('Industrial Task Run', prompt, confidentiality, null);
       if (task) {
         if (task.output && (task.output.includes('[LOCAL MODEL UNAVAILABLE]') || task.output.includes('[LOCAL MODEL ERROR]'))) {
           setRetryPrompt(savedPrompt);
