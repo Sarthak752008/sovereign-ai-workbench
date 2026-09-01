@@ -161,3 +161,15 @@ export async function searchKnowledge(query) {
   }
   return [];
 }
+
+export async function resetWorkbench() {
+  try {
+    const res = await fetch(`${API_BASE}/workbench/reset`, {
+      method: 'POST'
+    });
+    if (res.ok) return await res.json();
+  } catch (e) {
+    console.error(e);
+  }
+  return null;
+}

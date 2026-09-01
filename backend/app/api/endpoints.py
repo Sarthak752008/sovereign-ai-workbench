@@ -132,3 +132,10 @@ async def search_knowledge(payload: Dict[str, Any] = Body(...)):
     query = payload.get("query", "")
     top_k = payload.get("top_k", 5)
     return vector_store.search(query, top_k=top_k)
+
+@router.post("/workbench/reset")
+async def reset_workbench():
+    agent_orchestrator.reset()
+    vector_store.clear()
+    audit_ledger.record_event(action="WORKBENCH_RESET", details={"status": "cleared"})
+    return {"status": "success", "message": "Workbench session reset cleanly. Ready for new report."}

@@ -39,27 +39,46 @@ class LocalVectorStore:
 
     def search(self, query: str, top_k: int = 5) -> List[Dict[str, Any]]:
         """
-        Search documents using keyword matching + improved ranking
-        Returns actual ingested chunks, not hardcoded fallback
+        Search documents using keyword matching + improved ranking.
+        For summarization queries, prioritizes uploaded non-default document chunks.
+        Returns top-k most relevant chunks based on query context.
         """
+        if not self._chunks:
+            return []
+
+        query_lower = query.lower() if query else ""
+        sum_keywords = ["summary", "summarize", "overview", "brief", "short summary", "explain", "detail", "pdf", "report", "onepager", "document"]
+        is_summary_query = any(k in query_lower for k in sum_keywords)
+
+        # For summary queries: prioritize uploaded documents (ignore default SOP unless it's the only content)
+        if is_summary_query:
+            uploaded_chunks = [c for c in self._chunks if c["filename"] != "Safety_SOP_Standard_Procedure.pdf"]
+            if uploaded_chunks:
+                # Return all uploaded document chunks sorted by filename (stable order)
+                return sorted(uploaded_chunks, key=lambda x: x.get("chunk_id", ""))[:top_k]
+            # Fallback to default if no uploaded docs
+            return self._chunks[:top_k]
+
+        # Empty or whitespace-only queries: return top-k chunks by default
         if not query or not query.strip():
-            return self._chunks[:top_k] if self._chunks else []
+            return self._chunks[:top_k]
         
-        query_words = set(query.lower().split())
+        # Keyword-based search for non-summary queries
+        query_words = set(query_lower.split())
         scored = []
         
         for chunk in self._chunks:
             text_words = set(chunk["text"].lower().split())
             overlap = len(query_words.intersection(text_words))
-            score = overlap / max(len(query_words), 1) if query_words else 0
+            # Give bonus to uploaded non-default docs
+            doc_bonus = 0.5 if chunk["filename"] != "Safety_SOP_Standard_Procedure.pdf" else 0.0
+            score = (overlap / max(len(query_words), 1)) + doc_bonus
             scored.append((score, chunk))
         
-        # Sort by relevance
+        # Sort by relevance score (highest first)
         scored.sort(key=lambda x: x[0], reverse=True)
         
-        # Return top results (including zero-match results from ingested docs)
         results = [item[1] for item in scored[:top_k]]
-        
         return results if results else self._chunks[:top_k]
 
     def list_chunks(self) -> List[Dict[str, Any]]:
@@ -67,7 +86,7 @@ class LocalVectorStore:
         return self._chunks if self._chunks else []
 
     def clear(self):
-        """Clear all chunks"""
+        """Clear all chunks and reset to default SOP"""
         self._chunks = []
         self._initialize_defaults()
 

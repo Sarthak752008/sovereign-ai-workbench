@@ -69,8 +69,8 @@ class AgentOrchestrator:
     async def _execute_task_loop(self, task: TaskResponse, prompt: str, route: Any):
         task.current_step = "RAG_SEARCHING"
         
-        # Search local vector store for SOP context
-        rag_hits = vector_store.search(prompt, top_k=2)
+        # Search local vector store for context (especially for summarization queries)
+        rag_hits = vector_store.search(prompt, top_k=3)
         citations = [f"{h['filename']} (Page {h['page']}): {h['text']}" for h in rag_hits]
         
         audit_ledger.record_event(
@@ -80,53 +80,61 @@ class AgentOrchestrator:
         )
 
         task.current_step = "ACTING"
-        # Query local model gateway
+        # Query local model gateway with RAG context
         response = await model_gateway.generate(
             model_id=route.selected_model,
-            prompt=f"Task: {prompt}\nCitations: {citations}\nExecute industrial compliance analysis."
+            prompt=f"Task: {prompt}\nCitations:\n" + "\n".join(citations) if citations else f"Task: {prompt}"
         )
 
+        # PRESERVE actual LLM-generated output
         output_text = response.get("text", "")
 
-        # Evaluate policy engine for sensitive actions (Python execution / Report generation)
-        task.current_step = "CHECKING_POLICY"
-        policy_check = policy_engine.evaluate(
-            task_prompt=prompt,
-            confidentiality=route.task_classification,
-            tool_name="python.exec"
-        )
+        # Check if task EXPLICITLY requests python sandbox execution
+        prompt_lower = prompt.lower()
+        requires_python_exec = any(kw in prompt_lower for kw in ["python sandbox", "execute python", "run code in sandbox"])
 
-        if policy_check.decision == "REQUIRE_APPROVAL":
-            app_id = str(uuid.uuid4())
-            
-            # Generate task-specific code based on query
-            calc_script = self._generate_task_code(prompt)
-            
-            app_req = ApprovalRequest(
-                approval_id=app_id,
-                task_id=task.task_id,
-                action_name="execute_python_sandbox_and_generate_docx",
-                risk_level=RiskLevel.HIGH,
-                payload={
-                    "code": calc_script,
-                    "prompt": prompt,
-                    "citations": citations,
-                    "output_filename": "Approval_Note.docx"
-                }
+        # Only evaluate policy if explicit sandbox execution is requested
+        if requires_python_exec:
+            # Evaluate policy engine
+            task.current_step = "CHECKING_POLICY"
+            policy_check = policy_engine.evaluate(
+                task_prompt=prompt,
+                confidentiality=route.task_classification,
+                tool_name="python.exec"
             )
-            self._approvals[app_id] = app_req
-            task.status = "WAITING_APPROVAL"
-            task.current_step = "AWAITING_HUMAN_APPROVAL"
-            
-            audit_ledger.record_event(
-                action="APPROVAL_REQUESTED",
-                tool_used="python.exec",
-                details={"approval_id": app_id, "risk": "HIGH", "rule": policy_check.rule_id}
-            )
-            return
 
-        # Direct execution if approval not required
-        self._complete_task_execution(task, output_text, citations, "print('Inspection verified.')", "Approval_Note.docx")
+            if policy_check.decision == "REQUIRE_APPROVAL":
+                app_id = str(uuid.uuid4())
+                
+                # Generate task-specific code based on query
+                calc_script = self._generate_task_code(prompt)
+                
+                app_req = ApprovalRequest(
+                    approval_id=app_id,
+                    task_id=task.task_id,
+                    action_name="execute_python_sandbox_and_generate_docx",
+                    risk_level=RiskLevel.HIGH,
+                    payload={
+                        "code": calc_script,
+                        "prompt": prompt,
+                        "citations": citations,
+                        "output_text": output_text,
+                        "output_filename": "Approval_Note.docx"
+                    }
+                )
+                self._approvals[app_id] = app_req
+                task.status = "WAITING_APPROVAL"
+                task.current_step = "AWAITING_HUMAN_APPROVAL"
+                
+                audit_ledger.record_event(
+                    action="APPROVAL_REQUESTED",
+                    tool_used="python.exec",
+                    details={"approval_id": app_id, "risk": "HIGH", "rule": policy_check.rule_id}
+                )
+                return
+
+        # Direct execution for simple summarization, coding suggestions, Q&A (no sandbox approval needed)
+        self._complete_task_execution(task, output_text, citations)
 
     def decide_approval(self, approval_id: str, decision: ApprovalStatus) -> Optional[ApprovalRequest]:
         app_req = self._approvals.get(approval_id)
@@ -148,6 +156,7 @@ class AgentOrchestrator:
                 code = payload.get("code", "")
                 citations = payload.get("citations", [])
                 prompt = payload.get("prompt", "")
+                output_text = payload.get("output_text", "")
                 filename = payload.get("output_filename", "Approval_Note.docx")
                 
                 # 1. Execute sandbox calculation
@@ -162,20 +171,20 @@ class AgentOrchestrator:
                 
                 # 3. Generate real DOCX report file with task-specific content
                 sections = [
-                    {"heading": "Executive Summary", "content": f"Analysis Report for: {prompt[:200]}...\n\nIndustrial inspection report analysis performed under air-gapped Sovereign AI Workbench supervision."},
+                    {"heading": "Executive Summary", "content": f"Analysis Report for: {prompt[:200]}...\n\n{output_text}"},
                     {"heading": "Analysis Results", "content": f"Task Execution Complete\n\n{stdout}"},
                     {"heading": "Reference Materials", "content": "\n".join(citations) if citations else "No reference materials available"},
                     {"heading": "Operator Approval Sign-off", "content": f"Action approved by Operator. Approval Ticket ID: {approval_id}"}
                 ]
                 docx_res = tool_registry.generate_docx(filename, "OFFICIAL ANALYSIS REPORT", sections)
                 
-                
                 # 4. Finalize task response
                 task.status = "completed"
                 task.current_step = "COMPLETED"
                 task.verification_passed = verif["passed"]
                 task.output = (
-                    f"{self._generate_task_output(prompt, citations, stdout)}\n\n"
+                    f"{output_text}\n\n"
+                    f"[SANDBOX CALCULATION OUTPUT]:\n{stdout}\n\n"
                     f"[GENERATED DELIVERABLE]:\n{docx_res['file_path']} (DOCX Report Created Successfully)"
                 )
                 
@@ -196,22 +205,28 @@ class AgentOrchestrator:
                 
         return app_req
 
-    def _complete_task_execution(self, task: TaskResponse, base_output: str, citations: List[str], code: str, filename: str):
-        sandbox_res = tool_registry.execute_python_code(code)
-        stdout = sandbox_res.get("stdout", "").strip()
-        verif = verification_engine.verify_citations(claims=[base_output], sources=[{"filename": "SOP-17"}])
-        
-        docx_res = tool_registry.generate_docx(filename, "Inspection Report Summary", [
-            {"heading": "Summary", "content": base_output},
-            {"heading": "Calculation", "content": stdout}
-        ])
+    def _complete_task_execution(self, task: TaskResponse, output_text: str, citations: List[str]):
+        """Complete task execution with preserved LLM output and RAG citations."""
+        verif = verification_engine.verify_citations(claims=[output_text[:100]], sources=[{"filename": "SOP-17"}])
         
         task.status = "completed"
         task.current_step = "COMPLETED"
         task.verification_passed = verif["passed"]
-        task.output = f"{base_output}\n\n[SANDBOX OUTPUT]: {stdout}\n\n[FILE]: {docx_res['file_path']}"
         
+        # Preserve the actual LLM-generated output as the primary result
+        final_output = output_text
+        
+        # Append RAG citations as reference material
+        if citations:
+            final_output += "\n\n[RAG EVIDENTIAL CITATIONS]:\n" + "\n".join(citations[:3])
+            
+        task.output = final_output
         audit_ledger.record_event(action="TASK_COMPLETED", model_used=task.selected_model, details={"task_id": task.task_id})
+
+    def reset(self):
+        """Reset orchestrator tasks and approvals"""
+        self._tasks.clear()
+        self._approvals.clear()
 
     def _generate_task_code(self, prompt: str) -> str:
         """
