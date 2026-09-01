@@ -9,10 +9,11 @@ app = FastAPI(
     description="Sovereign On-Premise Agentic AI Workbench API"
 )
 
-# Configure CORS for local web interface
+# Configure CORS for local web interface & LAN access (e.g., http://10.21.128.122:3000)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.CORS_ORIGINS,
+    allow_origin_regex=r"^https?://.*",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -32,4 +33,4 @@ async def root():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("app.main:app", host="127.0.0.1", port=8000, reload=True)
+    uvicorn.run("app.main:app", host=settings.HOST, port=settings.PORT, reload=True)

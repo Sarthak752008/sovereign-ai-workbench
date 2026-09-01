@@ -1,4 +1,5 @@
-const API_BASE = '/api/v1';
+const API_HOST = import.meta.env.VITE_API_BASE_URL || 'http://10.21.128.122:8000';
+const API_BASE = `${API_HOST.replace(/\/$/, '')}/api/v1`;
 
 export async function fetchSentinelStatus() {
   try {

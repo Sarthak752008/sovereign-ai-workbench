@@ -17,9 +17,27 @@ An air-gapped, on-premise, confidential industrial Agentic AI Workbench designed
 
 For complete system specification, logical layers, component responsibilities, API contracts, and security flows, see [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
+## LAN & Team Access
+
+The workbench is configured for LAN collaboration across your team:
+
+* **Frontend Dashboard (Teammate Access)**: 👉 [http://10.21.128.122:3000](http://10.21.128.122:3000)
+* **FastAPI Backend & Swagger Docs**: 👉 [http://10.21.128.122:8000/docs](http://10.21.128.122:8000/docs)
+* **Local Loopback (Server Host)**: `http://localhost:3000`
+
+> 🔒 **Security Notice (Private Inference Engine)**:
+> Ollama is kept private on the server host loopback (`127.0.0.1:11434`) and is **never exposed directly to the LAN**. All LAN clients communicate exclusively through the Sovereign FastAPI gateway, which enforces airgap policy checks, RBAC, RAG indexing, sandbox isolation, and cryptographic audit ledger logging.
+
 ## Quick Start
 
-### Backend Setup (FastAPI)
+### 1. Local Model Engine (Ollama)
+Start Ollama on the server (kept private to local loopback):
+```bash
+ollama serve
+# Ensure Ollama binds to 127.0.0.1:11434
+```
+
+### 2. Backend Setup (FastAPI → `0.0.0.0:8000`)
 ```bash
 cd backend
 python -m venv venv
@@ -29,14 +47,19 @@ python -m venv venv
 source venv/bin/activate
 
 pip install -r requirements.txt
-uvicorn app.main:app --reload --port 8000
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-### Frontend Setup (Next.js / Vite React)
+### 3. Frontend Setup (Vite React → `0.0.0.0:3000`)
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
 
-Open `http://localhost:3000` to launch the Sovereign AI Workbench Dashboard.
+### 4. Teammate Access
+Teammates on the LAN can open:
+```
+http://10.21.128.122:3000
+```
+
