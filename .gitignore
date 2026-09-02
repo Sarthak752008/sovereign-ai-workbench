@@ -33,6 +33,12 @@ data/blobs/*
 !data/blobs/.gitkeep
 data/indexes/*
 !data/indexes/.gitkeep
+backend/data/workspaces/*
+!backend/data/workspaces/.gitkeep
+backend/data/blobs/*
+!backend/data/blobs/.gitkeep
+backend/data/indexes/*
+!backend/data/indexes/.gitkeep
 models/*
 !models/.gitkeep
 

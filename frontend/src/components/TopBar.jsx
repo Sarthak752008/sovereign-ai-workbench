@@ -1,7 +1,7 @@
 import React from 'react';
-import { ShieldCheck, WifiOff, Cpu, Lock, Activity, AlertTriangle, CheckCircle, XCircle } from 'lucide-react';
+import { ShieldCheck, WifiOff, Cpu, Lock, Activity, AlertTriangle, CheckCircle, XCircle, ArrowLeft } from 'lucide-react';
 
-export default function TopBar({ sentinel, systemHealth }) {
+export default function TopBar({ sentinel, systemHealth, showBackLink, onBackHome }) {
   const healthStatus = systemHealth?.status || 'CHECKING';
   const ollamaStatus = systemHealth?.services?.ollama;
   const modelCount = ollamaStatus?.models?.length || 0;
@@ -18,6 +18,16 @@ export default function TopBar({ sentinel, systemHealth }) {
   return (
     <header className="h-16 border-b border-slate-800 bg-slate-900/90 px-6 flex items-center justify-between glass-panel sticky top-0 z-50">
       <div className="flex items-center space-x-3">
+        {showBackLink && (
+          <button
+            onClick={onBackHome}
+            className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-cyan-300 transition-colors mr-2 font-mono"
+            title="Back to Landing Page"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Home</span>
+          </button>
+        )}
         <div className="h-9 w-9 rounded-lg bg-gradient-to-tr from-cyan-500 to-violet-600 flex items-center justify-center font-bold text-white shadow-lg glow-cyan">
           <ShieldCheck className="w-5 h-5 text-white" />
         </div>
